@@ -2,9 +2,16 @@ package com.app.auth.service;
 
 import com.app.auth.entity.User;
 import com.app.auth.repository.UserRepository;
+import com.app.auth.security.JwtUtil;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
-import com.app.auth.security.JwtUtil;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.MediaType;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 public class AuthService {
@@ -19,35 +26,57 @@ public class AuthService {
         this.jwtUtil = jwtUtil;
     }
 
-
-    public String signup(String email, String password) {
-
+    public String signup(String fullname, String email, String password, String role, String specialization, String clinicName) {
         if (repo.findByEmail(email).isPresent()) {
-            return "User already exists";
+            throw new RuntimeException("User already exists with email: " + email);
         }
 
+        String userRole = (role != null && !role.trim().isEmpty()) ? role.toUpperCase() : "PATIENT";
+
         User user = User.builder()
+                .fullname(fullname)
                 .email(email)
                 .password(encoder.encode(password))
-                .role("PATIENT")
+                .role(userRole)
                 .provider("LOCAL")
-                .fullname("Default User")
                 .build();
 
-        repo.save(user);
+        user = repo.save(user);
 
-        return "User registered";
+        if ("DOCTOR".equals(userRole)) {
+            try {
+                String token = jwtUtil.generateToken(email, userRole);
+                RestTemplate restTemplate = new RestTemplate();
+                
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+                headers.setBearerAuth(token);
+
+                Map<String, Object> providerRequest = new HashMap<>();
+                providerRequest.put("userId", user.getId());
+                providerRequest.put("name", fullname);
+                providerRequest.put("specialization", specialization != null ? specialization : "General");
+                providerRequest.put("clinicName", clinicName != null ? clinicName : "Default Clinic");
+
+                HttpEntity<Map<String, Object>> request = new HttpEntity<>(providerRequest, headers);
+                restTemplate.postForObject("http://localhost:8082/providers/add", request, String.class);
+            } catch (Exception e) {
+                repo.deleteById(user.getId());
+                throw new RuntimeException("Failed to register Doctor profile: " + e.getMessage());
+            }
+        }
+
+        return "User registered successfully";
     }
 
     public String login(String email, String password) {
-
         User user = repo.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new RuntimeException("User not found with email: " + email));
 
         if (!encoder.matches(password, user.getPassword())) {
-            return "Invalid password";
+            throw new RuntimeException("Invalid password");
         }
 
-        return jwtUtil.generateToken(email);
+        return jwtUtil.generateToken(email, user.getRole());
     }
 }

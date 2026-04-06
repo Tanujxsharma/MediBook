@@ -12,6 +12,8 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 public class SecurityConfig {
 
+    private final String FRONTEND_URL = "http://localhost:3000";
+
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
@@ -33,7 +35,6 @@ public class SecurityConfig {
                 )
                 .oauth2Login(oauth -> oauth.successHandler(
                         (req, res, authentication) -> {
-
                             String email = authentication.getName();
 
                             if (userRepository.findByEmail(email).isEmpty()) {
@@ -44,13 +45,12 @@ public class SecurityConfig {
                                         .provider("GOOGLE")
                                         .fullname("OAuth User")
                                         .build();
-
                                 userRepository.save(user);
                             }
 
-                            String token = jwtUtil.generateToken(email);
-
-                            res.sendRedirect("http://localhost:3000/oauth-success?token=" + token);
+                            User user = userRepository.findByEmail(email).get();
+                            String token = jwtUtil.generateToken(email, user.getRole());
+                            res.sendRedirect(FRONTEND_URL + "/oauth-success?token=" + token);
                         }
                 ))
                 .addFilterBefore(
