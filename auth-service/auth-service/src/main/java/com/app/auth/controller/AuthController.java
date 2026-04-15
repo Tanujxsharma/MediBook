@@ -1,0 +1,47 @@
+package com.app.auth.controller;
+
+import com.app.auth.dto.*;
+import com.app.auth.service.AuthService;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+@RestController
+@RequestMapping("/auth")
+public class AuthController {
+
+    private final AuthService service;
+
+    public AuthController(AuthService service) {
+        this.service = service;
+    }
+
+    @PostMapping("/signup")
+    public ResponseEntity<String> signup(@Valid @RequestBody AuthRequestDto req) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(
+                service.signup(
+                        req.getFullname(),
+                        req.getEmail(),
+                        req.getPassword(),
+                        req.getRole(),
+                        req.getSpecialization(),
+                        req.getClinicName()
+                )
+        );
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<AuthResponseDto> login(@Valid @RequestBody LoginRequestDto req) {
+        return ResponseEntity.ok(service.login(req.getEmail(), req.getPassword()));
+    }
+
+//    @PostMapping("/forgot-password")
+//    public ResponseEntity<String> forgotPassword(@Valid @RequestBody ForgotPasswordRequestDto req) {
+//        return ResponseEntity.ok(service.forgotPassword(req.getEmail()));
+//    }
+//
+//    @PostMapping("/reset-password")
+//    public ResponseEntity<String> resetPassword(@Valid @RequestBody ResetPasswordRequestDto req) {
+//        return ResponseEntity.ok(service.resetPassword(req.getToken(), req.getNewPassword()));
+//    }
+}
