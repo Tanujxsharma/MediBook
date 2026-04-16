@@ -531,7 +531,6 @@ spring.jpa.hibernate.ddl-auto=validate    # No changes
 
 ---
 
-## Author
+##Author
 
 **Tanuj Sharma**
-
