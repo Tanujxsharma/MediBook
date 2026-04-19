@@ -1,14 +1,11 @@
 package com.app.auth.service;
 
 import com.app.auth.dto.AuthResponseDto;
-import com.app.auth.entity.PasswordResetToken;
 import com.app.auth.entity.User;
-import com.app.auth.repository.PasswordResetTokenRepository;
 import com.app.auth.repository.UserRepository;
 import com.app.auth.security.JwtUtil;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -29,8 +26,7 @@ class AuthServiceTest {
     @Mock
     private UserRepository userRepository;
 
-    @Mock
-    private PasswordResetTokenRepository tokenRepository;
+
 
     @Mock
     private BCryptPasswordEncoder encoder;
@@ -114,52 +110,6 @@ class AuthServiceTest {
         assertEquals("Login successful", response.getMessage());
     }
 
-    @Test
-    void forgotPassword_shouldGenerateAndStoreResetToken() {
-        User user = User.builder()
-                .id(4L)
-                .fullname("Forgot User")
-                .email("forgot@example.com")
-                .password("pass")
-                .role("PATIENT")
-                .provider("LOCAL")
-                .build();
 
-        when(userRepository.findByEmail("forgot@example.com")).thenReturn(Optional.of(user));
 
-        String response = authService.forgotPassword("forgot@example.com");
-
-        assertEquals("Password reset token generated and notification sent", response);
-        verify(tokenRepository).deleteByUser(user);
-        verify(tokenRepository).save(any(PasswordResetToken.class));
-        verify(notificationService).sendPasswordResetNotification(eq("forgot@example.com"), anyString());
-    }
-
-    @Test
-    void resetPassword_shouldUpdatePasswordAndDeleteToken() {
-        User user = User.builder()
-                .id(5L)
-                .fullname("Reset User")
-                .email("reset@example.com")
-                .password("old-password")
-                .role("PATIENT")
-                .provider("LOCAL")
-                .build();
-
-        PasswordResetToken resetToken = PasswordResetToken.builder()
-                .token("reset-token")
-                .user(user)
-                .expiryTime(LocalDateTime.now().plusMinutes(10))
-                .build();
-
-        when(tokenRepository.findByToken("reset-token")).thenReturn(Optional.of(resetToken));
-        when(encoder.encode("new-password")).thenReturn("encoded-new-password");
-
-        String response = authService.resetPassword("reset-token", "new-password");
-
-        assertEquals("Password reset successful", response);
-        assertEquals("encoded-new-password", user.getPassword());
-        verify(userRepository).save(user);
-        verify(tokenRepository).delete(resetToken);
-    }
 }

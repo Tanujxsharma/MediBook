@@ -9,7 +9,5 @@ public class NotificationService {
 
     private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
 
-    public void sendPasswordResetNotification(String email, String token) {
-        log.info("Password reset token for {} is {}", email, token);
-    }
+
 }

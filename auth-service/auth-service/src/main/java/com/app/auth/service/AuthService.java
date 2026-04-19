@@ -1,9 +1,7 @@
 package com.app.auth.service;
 
 import com.app.auth.dto.AuthResponseDto;
-import com.app.auth.entity.PasswordResetToken;
 import com.app.auth.entity.User;
-import com.app.auth.repository.PasswordResetTokenRepository;
 import com.app.auth.repository.UserRepository;
 import com.app.auth.security.JwtUtil;
 import org.springframework.http.*;
@@ -21,20 +19,17 @@ import java.util.UUID;
 public class AuthService {
 
     private final UserRepository userRepository;
-    private final PasswordResetTokenRepository tokenRepository;
     private final BCryptPasswordEncoder encoder;
     private final JwtUtil jwtUtil;
     private final NotificationService notificationService;
     private final RestTemplate restTemplate;
 
     public AuthService(UserRepository userRepository,
-                       PasswordResetTokenRepository tokenRepository,
                        BCryptPasswordEncoder encoder,
                        JwtUtil jwtUtil,
                        NotificationService notificationService,
                        RestTemplate restTemplate) {
         this.userRepository = userRepository;
-        this.tokenRepository = tokenRepository;
         this.encoder = encoder;
         this.jwtUtil = jwtUtil;
         this.notificationService = notificationService;
@@ -117,41 +112,5 @@ public class AuthService {
                 .build();
     }
 
-    @Transactional
-    public String forgotPassword(String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found with email: " + email));
 
-        tokenRepository.deleteByUser(user);
-
-        String token = UUID.randomUUID().toString();
-
-        PasswordResetToken resetToken = PasswordResetToken.builder()
-                .token(token)
-                .user(user)
-                .expiryTime(LocalDateTime.now().plusMinutes(30))
-                .build();
-
-        tokenRepository.save(resetToken);
-        notificationService.sendPasswordResetNotification(user.getEmail(), token);
-
-        return "Password reset token generated and notification sent";
-    }
-
-    @Transactional
-    public String resetPassword(String token, String newPassword) {
-        PasswordResetToken resetToken = tokenRepository.findByToken(token)
-                .orElseThrow(() -> new RuntimeException("Invalid reset token"));
-
-        if (resetToken.getExpiryTime().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Reset token has expired");
-        }
-
-        User user = resetToken.getUser();
-        user.setPassword(encoder.encode(newPassword));
-        userRepository.save(user);
-        tokenRepository.delete(resetToken);
-
-        return "Password reset successful";
-    }
 }

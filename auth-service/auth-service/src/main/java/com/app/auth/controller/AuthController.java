@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
@@ -35,13 +36,5 @@ public class AuthController {
         return ResponseEntity.ok(service.login(req.getEmail(), req.getPassword()));
     }
 
-//    @PostMapping("/forgot-password")
-//    public ResponseEntity<String> forgotPassword(@Valid @RequestBody ForgotPasswordRequestDto req) {
-//        return ResponseEntity.ok(service.forgotPassword(req.getEmail()));
-//    }
-//
-//    @PostMapping("/reset-password")
-//    public ResponseEntity<String> resetPassword(@Valid @RequestBody ResetPasswordRequestDto req) {
-//        return ResponseEntity.ok(service.resetPassword(req.getToken(), req.getNewPassword()));
-//    }
+
 }

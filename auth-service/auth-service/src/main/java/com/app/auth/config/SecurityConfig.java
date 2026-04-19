@@ -17,41 +17,39 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtUtil jwtUtil,
-                                                   UserRepository userRepository) throws Exception {
+            UserRepository userRepository) throws Exception {
         http.csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/auth/signup",
-                                "/auth/login",
-                                "/auth/forgot-password",
-                                "/auth/reset-password",
-                                "/users/internal/**",
-                                "/oauth2/**",
-                                "/login/**",
-                                "/error",
-                                "/v3/api-docs/**",
-                                "/swagger-ui/**",
-                                "/swagger-ui.html"
-                        ).permitAll()
-                        .requestMatchers("/users/admin/**").hasRole("ADMIN")
-                        .anyRequest().authenticated()
+                .requestMatchers(
+                        "/auth/signup",
+                        "/auth/login",
+                        "/users/internal/**",
+                        "/oauth2/**",
+                        "/login/**",
+                        "/error",
+                        "/v3/api-docs/**",
+                        "/swagger-ui/**",
+                        "/swagger-ui.html"
+                ).permitAll()
+                .requestMatchers("/users/admin/**").hasRole("ADMIN")
+                .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth -> oauth.successHandler((req, res, authentication) -> {
-                    String email = authentication.getName();
+            String email = authentication.getName();
 
-                    User user = userRepository.findByEmail(email).orElseGet(() ->
-                            userRepository.save(User.builder()
-                                    .fullname("OAuth User")
-                                    .email(email)
-                                    .password("OAUTH_USER")
-                                    .role("PATIENT")
-                                    .provider("GOOGLE")
-                                    .build())
-                    );
+            User user = userRepository.findByEmail(email).orElseGet(()
+                    -> userRepository.save(User.builder()
+                            .fullname("OAuth User")
+                            .email(email)
+                            .password("OAUTH_USER")
+                            .role("PATIENT")
+                            .provider("GOOGLE")
+                            .build())
+            );
 
-                    String token = jwtUtil.generateToken(user.getId(), user.getEmail(), user.getRole());
-                    res.sendRedirect(FRONTEND_URL + "/oauth-success?token=" + token);
-                }))
+            String token = jwtUtil.generateToken(user.getId(), user.getEmail(), user.getRole());
+            res.sendRedirect(FRONTEND_URL + "/oauth-success?token=" + token);
+        }))
                 .addFilterBefore(new JwtFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
