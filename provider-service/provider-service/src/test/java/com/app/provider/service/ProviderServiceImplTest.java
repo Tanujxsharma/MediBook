@@ -2,13 +2,13 @@ package com.app.provider.service;
 
 import com.app.provider.dto.ProviderRequest;
 import com.app.provider.dto.ProviderResponse;
-import com.app.provider.entity.Provider;
 import com.app.provider.repository.ProviderRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import com.app.provider.entity.Provider;
 
 import java.time.LocalDate;
 import java.util.List;

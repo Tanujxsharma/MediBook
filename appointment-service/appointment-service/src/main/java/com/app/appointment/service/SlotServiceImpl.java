@@ -99,7 +99,7 @@ public class SlotServiceImpl implements SlotService {
         List<Slot> slots = slotRepository.findByIsBookedFalseAndStartTimeAfterOrderByStartTimeAsc(LocalDateTime.now());
 
         return slots.stream()
-                .map(slot -> enrichSlot(slot))
+                .map(this::enrichSlot)
                 .filter(Objects::nonNull)
                 .filter(slot -> {
                     if (date == null) return true;

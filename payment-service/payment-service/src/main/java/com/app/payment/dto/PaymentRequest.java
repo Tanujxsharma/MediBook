@@ -23,7 +23,7 @@ public class PaymentRequest {
     @PositiveOrZero(message = "Amount must be zero or greater")
     private double amount;
 
-    private String paymentMethod; // "DEMO" or actual payment provider
+    private String paymentMethod;
 
     private String description;
 }

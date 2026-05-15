@@ -23,12 +23,30 @@ public class PaymentController {
     }
 
     /**
-     * Process payment for an appointment
+     * Process an appointment payment (legacy/local flow)
      */
     @PostMapping("/process")
     public ResponseEntity<PaymentResponse> processPayment(@Valid @RequestBody PaymentRequest request,
                                                           Authentication authentication) {
         return ResponseEntity.status(HttpStatus.CREATED).body(paymentService.processPayment(request));
+    }
+
+    /**
+     * Create Razorpay order
+     */
+    @PostMapping("/create-order")
+    public ResponseEntity<com.app.payment.dto.OrderResponse> createOrder(@Valid @RequestBody PaymentRequest request,
+                                                                         Authentication authentication) throws com.razorpay.RazorpayException {
+        return ResponseEntity.status(HttpStatus.CREATED).body(paymentService.createRazorpayOrder(request));
+    }
+
+    /**
+     * Verify Razorpay payment
+     */
+    @PostMapping("/verify")
+    public ResponseEntity<PaymentResponse> verifyPayment(@Valid @RequestBody com.app.payment.dto.PaymentVerifyRequest request,
+                                                         Authentication authentication) throws com.razorpay.RazorpayException {
+        return ResponseEntity.ok(paymentService.verifyPayment(request));
     }
 
     /**

@@ -19,23 +19,27 @@ import java.util.stream.Collectors;
 public class PaymentService {
 
     private final PaymentRepository paymentRepository;
+    private final com.razorpay.RazorpayClient razorpayClient;
 
-    public PaymentService(PaymentRepository paymentRepository) {
+    public PaymentService(PaymentRepository paymentRepository, com.razorpay.RazorpayClient razorpayClient) {
         this.paymentRepository = paymentRepository;
+        this.razorpayClient = razorpayClient;
     }
 
     /**
-     * Process a demo payment for appointment
-     * In production, this would integrate with Stripe, PayPal, etc.
+     * Create a local payment record for an appointment payment.
      */
     public PaymentResponse processPayment(PaymentRequest request) {
         log.info("Processing payment for appointment: {}", request.getAppointmentId());
 
-        // Check if payment already exists for this appointment
         var existingPayment = paymentRepository.findByAppointmentId(request.getAppointmentId());
         if (existingPayment.isPresent()) {
             log.warn("Payment already exists for appointment: {}", request.getAppointmentId());
-            throw new RuntimeException("Payment already processed for this appointment");
+            var payment = existingPayment.get();
+            if (payment.getStatus() == PaymentStatus.SUCCESS) {
+                throw new RuntimeException("Payment already processed for this appointment");
+            }
+            return mapToResponse(payment);
         }
 
         Payment payment = Payment.builder()
@@ -43,19 +47,14 @@ public class PaymentService {
                 .userId(request.getUserId())
                 .providerId(request.getProviderId())
                 .amount(request.getAmount())
-                .status(PaymentStatus.PROCESSING)
-                .paymentMethod(request.getPaymentMethod() != null ? request.getPaymentMethod() : "DEMO")
+                .status(PaymentStatus.SUCCESS)
+                .transactionId("PAY-" + UUID.randomUUID())
+                .paymentMethod(request.getPaymentMethod() != null ? request.getPaymentMethod() : "LOCAL")
                 .description(request.getDescription())
                 .build();
 
-        // Generate transaction ID
-        payment.setTransactionId("TXN-" + UUID.randomUUID().toString());
-
-        // Demo payment flow always succeeds so booking UX stays deterministic.
-        payment.setStatus(PaymentStatus.SUCCESS);
-        log.info("Demo payment SUCCESS: {}", payment.getTransactionId());
-
         Payment savedPayment = paymentRepository.save(payment);
+        log.info("Payment processed: {}", savedPayment.getId());
         return mapToResponse(savedPayment);
     }
 
@@ -134,5 +133,68 @@ public class PaymentService {
                 .createdAt(payment.getCreatedAt())
                 .updatedAt(payment.getUpdatedAt())
                 .build();
+    }
+
+    public com.app.payment.dto.OrderResponse createRazorpayOrder(PaymentRequest request) throws com.razorpay.RazorpayException {
+        var existingPayment = paymentRepository.findByAppointmentId(request.getAppointmentId());
+        if (existingPayment.isPresent() && existingPayment.get().getStatus() == PaymentStatus.SUCCESS) {
+            throw new RuntimeException("Payment already processed for this appointment");
+        }
+
+        double amountInPaise = request.getAmount() * 100;
+
+        org.json.JSONObject orderRequest = new org.json.JSONObject();
+        orderRequest.put("amount", (int) amountInPaise);
+        orderRequest.put("currency", "INR");
+        orderRequest.put("receipt", "txn_" + UUID.randomUUID().toString().substring(0, 8));
+
+        com.razorpay.Order razorpayOrder = razorpayClient.orders.create(orderRequest);
+
+        // Pre-save payment as PENDING
+        if (existingPayment.isEmpty()) {
+            Payment payment = Payment.builder()
+                    .appointmentId(request.getAppointmentId())
+                    .userId(request.getUserId())
+                    .providerId(request.getProviderId())
+                    .amount(request.getAmount())
+                    .status(PaymentStatus.PENDING)
+                    .transactionId(razorpayOrder.get("id"))
+                    .paymentMethod("RAZORPAY")
+                    .description(request.getDescription())
+                    .build();
+            paymentRepository.save(payment);
+        } else {
+            Payment payment = existingPayment.get();
+            payment.setTransactionId(razorpayOrder.get("id"));
+            paymentRepository.save(payment);
+        }
+
+        return com.app.payment.dto.OrderResponse.builder()
+                .orderId(razorpayOrder.get("id"))
+                .amount(request.getAmount())
+                .currency("INR")
+                .appointmentId(request.getAppointmentId())
+                .build();
+    }
+
+    @org.springframework.beans.factory.annotation.Value("${razorpay.key.secret}")
+    private String razorpaySecret;
+
+    public PaymentResponse verifyPayment(com.app.payment.dto.PaymentVerifyRequest request) throws com.razorpay.RazorpayException {
+        String payload = request.getRazorpayOrderId() + "|" + request.getRazorpayPaymentId();
+        boolean isValidSignature = com.razorpay.Utils.verifySignature(payload, request.getRazorpaySignature(), razorpaySecret);
+
+        if (!isValidSignature) {
+            throw new RuntimeException("Invalid payment signature");
+        }
+
+        Payment payment = paymentRepository.findByAppointmentId(request.getAppointmentId())
+                .orElseThrow(() -> new RuntimeException("Payment record not found"));
+
+        payment.setStatus(PaymentStatus.SUCCESS);
+        payment.setTransactionId(request.getRazorpayPaymentId());
+        paymentRepository.save(payment);
+
+        return mapToResponse(payment);
     }
 }

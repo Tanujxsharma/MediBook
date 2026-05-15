@@ -9,11 +9,11 @@ import java.util.Optional;
 
 public interface ProviderRepository extends JpaRepository<Provider, Long> {
 
-    @Query("""
-           SELECT p FROM Provider p
-           WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
-              OR LOWER(p.specialization) LIKE LOWER(CONCAT('%', :keyword, '%'))
-           """)
+    @Query(value = """
+            SELECT p FROM Provider p
+            WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+               OR LOWER(p.specialization) LIKE LOWER(CONCAT('%', :keyword, '%'))
+            """)
     List<Provider> searchByNameOrSpecialization(String keyword);
 
     List<Provider> findBySpecialization(String specialization);
